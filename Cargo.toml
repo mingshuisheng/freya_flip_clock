@@ -1,0 +1,28 @@
+[package]
+name = "flip_clock"
+version = "0.1.0"
+edition = "2021"
+
+[package.metadata.packager]
+before-packaging-command = "cargo build --release" # Before packaging, packager will run this command.
+product-name = "My App" # By default, the crate name will be shown, but you probably prefer "My App" over "my-app".
+
+[build-dependencies]
+winresource = "0.1.7"
+
+[profile.release]
+opt-level = "z"
+debug = false
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+incremental = false
+
+
+[dependencies]
+freya = {path = "G:/rustLib/freya/crates/freya"}
+tray-icon = "0.13.0"
+image = "0.25.1"
+tokio = "1.37.0"
+mouce = "0.2.44"
