@@ -21,8 +21,9 @@ incremental = false
 
 
 [dependencies]
-freya = {path = "G:/rustLib/freya/crates/freya"}
-tray-icon = "0.13.0"
+freya = { path = "../../rustLib/freya/crates/freya" }
 image = "0.25.1"
 tokio = "1.37.0"
 mouce = "0.2.44"
+skia-safe = { version = "0.72.0", features = ["gl", "textlayout", "svg"] }
+chrono = "0.4.38"
