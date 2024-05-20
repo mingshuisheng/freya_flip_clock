@@ -6,7 +6,6 @@
 
 mod canvas_utils;
 
-
 use std::time::Duration;
 use freya::prelude::*;
 use skia_safe::{Color, Font, FontStyle, M44, Paint, Point, Rect, V3, Size, RRect};
@@ -27,10 +26,13 @@ static CARD_COLOR: Color = Color::new(0xff191919);
 // const FONT_COLOR: Color = Color::new(0xff161923);
 // static CARD_COLOR: Color = Color::WHITE;
 
+const WINDOW_WIDTH: f64 = 1400.0;
+const WINDOW_HEIGHT: f64 = 400.0;
+
 fn main() {
   launch_cfg(app, LaunchConfig::<()>::builder()
-    .with_width(685.0)
-    .with_height(200.0)
+    .with_width(WINDOW_WIDTH)
+    .with_height(WINDOW_HEIGHT)
     .with_decorations(false)
     .with_transparency(true)
     .with_title("Floating window")
@@ -64,10 +66,7 @@ fn app() -> Element {
         main_align: "center",
         cross_align: "center",
         // border: "2 solid red",
-        rect {
-          width: "20"
-        }
-        NumGroup{
+        NumGroup {
           num: hour(),
           max_num: 23,
         }
@@ -81,9 +80,6 @@ fn app() -> Element {
           num: second(),
           max_num: 59,
         }
-        rect {
-          width: "20"
-        }
       }
     }
   )
@@ -92,26 +88,39 @@ fn app() -> Element {
 #[allow(non_snake_case)]
 #[component]
 pub fn Splitter() -> Element {
+  let platform = use_platform();
+  let PlatformInformation { window_size } = platform.info();
+
+  let radius = window_size.width * 0.04285 * 0.33333;
+
   rsx!(
     rect {
-      main_align: "center",
-      cross_align: "center",
-      padding: "10 5",
-      rect{
-        width: "10",
-        height: "10",
-        corner_radius: "10",
-        corner_smoothing: "75%",
-        background: DOT_COLOR
+      width: "4.285%",
+      height: "25%",
+      direction: "horizontal",
+      rect {width: "33.333%"}
+      rect {
+        width: "33.333%",
+        height: "100%",
+        main_align: "center",
+        cross_align: "center",
+        rect {
+          width: "100%",
+          height: "20%",
+          corner_radius: radius.to_string(),
+          corner_smoothing: "75%",
+          background: DOT_COLOR
+        }
+        rect {height: "60%"}
+        rect {
+          width: "100%",
+          height: "20%",
+          corner_radius: radius.to_string(),
+          corner_smoothing: "75%",
+          background: DOT_COLOR
+        }
       }
-      rect{
-        width: "10",
-        height: "10",
-        margin: "30 0 0 0",
-        corner_radius: "10",
-        corner_smoothing: "75%",
-        background: DOT_COLOR
-      }
+      rect {width: "33.333%"}
     }
   )
 }
@@ -129,29 +138,27 @@ pub fn NumGroup(props: NumGroupProps) -> Element {
   rsx!(
     rect {
       direction: "horizontal",
+      width: "30%",
+      height: "100%",
       rect {
-          width: "100",
-          height: "200",
+          width: "47.619%",
+          height: "100%",
           position: "relative",
-          font_size: "400",
           color: "white",
           background: "transparent",
-          // margin: "0 0 0 10",
           overflow: "none",
           Num {
             num: props.num / 10,
             max: props.max_num / 10,
           }
         }
-        rect {width: "10"}
+        rect {width: "4.7619%"}
         rect {
-          width: "100",
-          height: "200",
+          width: "47.619%",
+          height: "100%",
           position: "relative",
-          font_size: "400",
           color: "white",
           background: "transparent",
-          // margin: "0 0 0 10",
           overflow: "none",
           Num {
             num: props.num % 10,
@@ -204,15 +211,17 @@ pub fn Num(props: NumProps) -> Element {
         let width = region.width();
         let height = region.height();
         let half_height = height / 2.0;
-        // let size = Size::new(width, height);
-        let half_size = Size::new(width, height / 2.0);
-        let origin_point = Point::new(0.0, 0.0);
-        let half_point = Point::new(0.0, height / 2.0);
-        let up_rect = Rect::from_point_and_size(origin_point, half_size);
-        let down_rect = Rect::from_point_and_size(half_point, half_size);
+        let region_center = Point::new(width / 2.0, half_height);
+
+        let center_space = width * 0.01;
+        let card_size = Size::new(width, half_height - center_space);
+
+        let up_rect = Rect::from_size(card_size);
+        let down_rect = Rect::from_point_and_size(Point::new(0.0, half_height + center_space), card_size);
+
         let current = num;
         let next = (num + 1) % (num_max + 1);
-        let radius = 10.0;
+        let radius = width * 0.1;
         let radii = [
           (radius, radius).into(),
           (radius, radius).into(),
@@ -236,57 +245,48 @@ pub fn Num(props: NumProps) -> Element {
           region.size.height,
         );
 
-        //上半部分的背后数字
-        canvas.with_restore(|canvas| {
-          canvas.clip_rect(up_rect, None, true);
-          let rounded_rect = RRect::new_rect_radii(up_rect, &radii);
-          canvas.draw_rrect(rounded_rect, &background_paint);
-          draw_num(canvas, next, &font, &text_paint, width, height);
-        });
+        let draw_card = |num: u32, rect: Rect| {
+          canvas.with_restore(|canvas| {
+            canvas.clip_rect(rect, None, true);
+            let rounded_rect = RRect::new_rect_radii(rect, &radii);
+            canvas.draw_rrect(rounded_rect, &background_paint);
+            draw_num(canvas, num, &font, &text_paint, width, height);
+          });
+        };
 
+        //上半部分的背后数字
+        draw_card(next, up_rect);
         //下半部分的背后数字
-        canvas.with_restore(|canvas| {
-          canvas.clip_rect(down_rect, None, true);
-          let rounded_rect = RRect::new_rect_radii(down_rect, &radii);
-          canvas.draw_rrect(rounded_rect, &background_paint);
-          draw_num(canvas, current, &font, &text_paint, width, height);
-        });
+        draw_card(current, down_rect);
 
         canvas.with_restore(|canvas| {
           if angle <= 90.0 {
-            canvas.clip_rect(Rect::from_ltrb(f32::MIN, f32::MIN, f32::MAX, half_height), None, true);
+            canvas.clip_rect(Rect::from_ltrb(f32::MIN, f32::MIN, f32::MAX, half_height - center_space), None, true);
           } else {
-            canvas.clip_rect(Rect::from_ltrb(f32::MIN, half_height, f32::MAX, f32::MAX), None, true);
+            canvas.clip_rect(Rect::from_ltrb(f32::MIN, half_height + center_space, f32::MAX, f32::MAX), None, true);
           }
-          canvas.translate((half_point.x + width / 2.0, half_point.y));
+          canvas.translate(region_center);
 
-
-          if angle == 90.0 {
-            let mut paint = Paint::default();
-            paint.set_anti_alias(true);
-            paint.set_color(CARD_COLOR);
-            paint.set_stroke_width(5.0);
-            canvas.draw_line(Point::new(-width / 2.0, 0.0), Point::new(width / 2.0, 0.0), &paint);
-          }
+          // x axis rotate
           #[allow(deprecated)]
             let mut view3d = View3D::new();
           view3d.rotate_x(-angle);
           canvas.concat(&view3d.matrix());
-          let rounded_rect = RRect::new_rect_radii(Rect::from_point_and_size(Point::new(-width / 2.0, -half_height), half_size), &radii);
-          // canvas.draw_rect(r, &background_paint);
+
+          let rounded_rect = RRect::new_rect_radii(Rect::from_point_and_size(Point::new(-width / 2.0, -half_height), card_size), &radii);
           canvas.draw_rrect(rounded_rect, &background_paint);
 
           if angle > 90.0 {
             canvas.concat_44(&M44::rotate(V3::new(1.0, 0.0, 0.0), 180f32.to_radians()));
           }
 
-          let current = if angle <= 90.0 {
+          let num = if angle <= 90.0 {
             current
           } else {
             next
           };
 
-          draw_num_offset(canvas, current, &font, &text_paint, width, height, -width / 2.0, -half_height);
+          draw_num_offset(canvas, num, &font, &text_paint, width, height, -width / 2.0, -half_height);
         });
       });
     })
