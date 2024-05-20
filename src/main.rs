@@ -89,10 +89,11 @@ fn main() {
     .with_height(window_height)
     .with_decorations(false)
     .with_transparency(true)
+    .with_skip_taskbar(true)
+    .with_window_level(WindowLevel::AlwaysOnTop)
     .with_title("Floating window")
     .with_background("transparent")
     .with_state(app_state)
-    .with_skip_taskbar(true)
     .build());
 }
 
