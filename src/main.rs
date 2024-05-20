@@ -5,7 +5,10 @@
 
 
 mod canvas_utils;
+mod colors;
 
+use std::collections::HashMap;
+use std::io::Read;
 use std::time::Duration;
 use freya::prelude::*;
 use skia_safe::{Color, Font, FontStyle, M44, Paint, Point, Rect, V3, Size, RRect};
@@ -15,28 +18,81 @@ use skia_safe::utils::View3D;
 use tokio::time::sleep;
 use crate::canvas_utils::CanvasUtils;
 use chrono::{Local, Timelike};
+use crate::colors::Parse;
 
-const DOT_COLOR: &str = "white";
+// const DOT_COLOR: &str = "white";
 // const FONT_COLOR: Color = Color::WHITE;
 // static CARD_COLOR: Color = Color::new(0xff161923);
 
-const FONT_COLOR: Color = Color::WHITE;
-static CARD_COLOR: Color = Color::new(0xff191919);
+// const FONT_COLOR: Color = Color::WHITE;
+// static CARD_COLOR: Color = Color::new(0xff191919);
 
 // const FONT_COLOR: Color = Color::new(0xff161923);
 // static CARD_COLOR: Color = Color::WHITE;
 
-const WINDOW_WIDTH: f64 = 1400.0;
-const WINDOW_HEIGHT: f64 = 400.0;
+
+#[derive(Debug, Copy, Clone, Default)]
+struct AppState {
+  dot_color: &'static str,
+  card_color: Color,
+  font_color: Color,
+}
 
 fn main() {
-  launch_cfg(app, LaunchConfig::<()>::builder()
-    .with_width(WINDOW_WIDTH)
-    .with_height(WINDOW_HEIGHT)
+  let default_app_state = AppState {
+    dot_color: "white",
+    font_color: Color::WHITE,
+    card_color: Color::new(0xff191919),
+  };
+
+  let mut default_dot_color = default_app_state.dot_color;
+
+  let ratio: f64 = 3.5;
+  let mut window_width: f64 = 700.0;
+  let mut window_height: f64 = window_width / ratio;
+
+  let conf_file = std::fs::File::open("./conf.txt");
+
+  let app_state = if let Ok(mut conf_file) = conf_file {
+    let mut config_str = String::new();
+    let _ = conf_file.read_to_string(&mut config_str).unwrap();
+    let configs = config_str.trim().split("\n").map(|s| {
+      let name_value: Vec<&str> = s.trim().split("=").collect();
+      (*name_value.get(0).unwrap_or(&""), *name_value.get(1).unwrap_or(&""))
+    }).fold(HashMap::<String, String>::new(), |mut map, current| {
+      map.insert(current.0.to_string(), current.1.to_string());
+      map
+    });
+
+    if let Some(dot_color) = configs.get("dot_color") {
+      default_dot_color = Box::leak(dot_color.clone().into_boxed_str());
+    }
+
+    if let Some(width_str) = configs.get("size") {
+      if let Ok(width) = width_str.parse::<f64>() {
+        window_width = width;
+        window_height = width / ratio;
+      }
+    }
+
+    AppState {
+      dot_color: default_dot_color,
+      font_color: Color::parse(configs.get("font_color").unwrap_or(&("white".to_string()))).unwrap(),
+      card_color: Color::parse(configs.get("card_color").unwrap_or(&("#191919".to_string()))).unwrap(),
+    }
+  } else {
+    default_app_state
+  };
+
+  launch_cfg(app, LaunchConfig::<AppState>::builder()
+    .with_width(window_width)
+    .with_height(window_height)
     .with_decorations(false)
     .with_transparency(true)
     .with_title("Floating window")
     .with_background("transparent")
+    .with_state(app_state)
+    .with_skip_taskbar(true)
     .build());
 }
 
@@ -57,6 +113,23 @@ fn app() -> Element {
     });
   });
 
+  let mut clicked = use_signal(|| 0i64);
+  let platform = use_platform();
+
+  let handle_click = move |_| {
+    if clicked() == 0 {
+      clicked.set(Local::now().timestamp_millis());
+    } else {
+      let now = Local::now().timestamp_millis();
+      let diff = now - clicked();
+      if diff > 500 {
+        clicked.set(now);
+      } else {
+        platform.exit();
+      }
+    }
+  };
+
   rsx!(
     WindowDragArea {
       rect {
@@ -65,6 +138,7 @@ fn app() -> Element {
         direction: "horizontal",
         main_align: "center",
         cross_align: "center",
+        onclick: handle_click,
         // border: "2 solid red",
         NumGroup {
           num: hour(),
@@ -93,6 +167,8 @@ pub fn Splitter() -> Element {
 
   let radius = window_size.width * 0.04285 * 0.33333;
 
+  let AppState { dot_color, .. } = consume_context::<AppState>();
+
   rsx!(
     rect {
       width: "4.285%",
@@ -109,7 +185,7 @@ pub fn Splitter() -> Element {
           height: "20%",
           corner_radius: radius.to_string(),
           corner_smoothing: "75%",
-          background: DOT_COLOR
+          background: dot_color
         }
         rect {height: "60%"}
         rect {
@@ -117,7 +193,7 @@ pub fn Splitter() -> Element {
           height: "20%",
           corner_radius: radius.to_string(),
           corner_smoothing: "75%",
-          background: DOT_COLOR
+          background: dot_color
         }
       }
       rect {width: "33.333%"}
@@ -181,6 +257,7 @@ pub struct NumProps {
 pub fn Num(props: NumProps) -> Element {
   let mut current_num = use_signal(|| props.num);
   let mut next_num = use_signal(|| props.num);
+  let AppState { card_color, font_color, .. } = consume_context::<AppState>();
 
   let animation = use_animation(|ctx| {
     ctx.with(
@@ -203,7 +280,7 @@ pub fn Num(props: NumProps) -> Element {
     animation.reset();
   }
 
-  let canvas = use_canvas(&(current_num(), angle.read().as_f32(), props.max), |(num, angle, num_max)| {
+  let canvas = use_canvas(&(current_num(), angle.read().as_f32(), props.max), move |(num, angle, num_max)| {
     Box::new(move |canvas: &skia_safe::Canvas, font_collection: &mut FontCollection, region| {
       canvas.with_restore(|canvas| {
         canvas.translate((region.origin.x, region.origin.y));
@@ -231,11 +308,11 @@ pub fn Num(props: NumProps) -> Element {
 
         let mut background_paint = Paint::default();
         background_paint.set_anti_alias(true);
-        background_paint.set_color(CARD_COLOR);
+        background_paint.set_color(card_color);
 
         let mut text_paint = Paint::default();
         text_paint.set_anti_alias(true);
-        text_paint.set_color(FONT_COLOR);
+        text_paint.set_color(font_color);
         let typefaces =
           font_collection.find_typefaces(&["Times New Roman"], FontStyle::default());
         let font = Font::new(
