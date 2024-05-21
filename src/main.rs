@@ -9,97 +9,118 @@ mod colors;
 use crate::canvas_utils::CanvasUtils;
 use crate::colors::Parse;
 use chrono::{Local, Timelike};
+use freya::dioxus::html::geometry::euclid::Size2D;
 use freya::prelude::*;
+use serde::{Deserialize, Serialize};
 use skia_safe::textlayout::FontCollection;
 #[allow(deprecated)]
 use skia_safe::utils::View3D;
 use skia_safe::{Color, Font, FontStyle, Paint, Point, RRect, Rect, Size, M44, V3};
-use std::collections::HashMap;
-use std::io::Read;
+use std::fs::File;
+use std::io::{Read, Write};
 use std::time::Duration;
+use tokio::io::AsyncWriteExt;
 use tokio::time::sleep;
 
-#[derive(Debug, Copy, Clone, Default)]
-struct AppState {
-    dot_color: &'static str,
-    card_color: Color,
-    font_color: Color,
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct AppConfig {
+    dot_color: String,
+    card_color: String,
+    font_color: String,
+    size: f64,
+    x: i32,
+    y: i32,
+    lock: bool,
 }
 
-fn main() {
-    let default_app_state = AppState {
-        dot_color: "white",
-        font_color: Color::WHITE,
-        card_color: Color::new(0xff191919),
-    };
+impl AppConfig {
+    pub fn get_conf_path() -> String {
+        "./FlipClock.json".to_owned()
+    }
 
-    let mut default_dot_color = default_app_state.dot_color;
+    pub fn load() -> Self {
+        let conf_file = File::open(Self::get_conf_path());
+        let default_app_config = AppConfig {
+            dot_color: "#cccccc".to_string(),
+            card_color: "#191919".to_string(),
+            font_color: "#cccccc".to_string(),
+            size: 700.0,
+            x: 100,
+            y: 100,
+            lock: false,
+        };
 
-    let ratio: f64 = 3.5;
-    let mut window_width: f64 = 700.0;
-    let mut window_height: f64 = window_width / ratio;
-
-    let conf_file = std::fs::File::open("./conf.txt");
-
-    let app_state = if let Ok(mut conf_file) = conf_file {
-        let mut config_str = String::new();
-        let _ = conf_file.read_to_string(&mut config_str).unwrap();
-        let configs = config_str
-            .trim()
-            .split("\n")
-            .map(|s| {
-                let name_value: Vec<&str> = s.trim().split("=").collect();
-                (
-                    *name_value.get(0).unwrap_or(&""),
-                    *name_value.get(1).unwrap_or(&""),
-                )
-            })
-            .fold(HashMap::<String, String>::new(), |mut map, current| {
-                map.insert(current.0.to_string(), current.1.to_string());
-                map
-            });
-
-        if let Some(dot_color) = configs.get("dot_color") {
-            default_dot_color = Box::leak(dot_color.clone().into_boxed_str());
-        }
-
-        if let Some(width_str) = configs.get("size") {
-            if let Ok(width) = width_str.parse::<f64>() {
-                window_width = width;
-                window_height = width / ratio;
+        let write_file = || {
+            let conf_file = File::create(Self::get_conf_path());
+            if let Ok(mut conf_file) = conf_file {
+                let _ = conf_file.write_all(default_app_config.to_json().as_bytes());
             }
-        }
+            default_app_config
+        };
 
-        AppState {
-            dot_color: default_dot_color,
-            font_color: Color::parse(configs.get("font_color").unwrap_or(&("white".to_string())))
-                .unwrap(),
-            card_color: Color::parse(
-                configs
-                    .get("card_color")
-                    .unwrap_or(&("#191919".to_string())),
-            )
-            .unwrap(),
-        }
-    } else {
-        default_app_state
-    };
+        if let Ok(mut conf_file) = conf_file {
+            let mut config_str = String::new();
+            let _ = conf_file.read_to_string(&mut config_str).unwrap();
 
-    launch_cfg(
-        app,
-        LaunchConfig::<AppState>::builder()
-            .with_width(window_width)
-            .with_height(window_height)
-            .with_decorations(false)
-            .with_transparency(true)
-            .with_skip_taskbar(true)
-            .with_window_level(WindowLevel::AlwaysOnTop)
-            .with_resizable(false)
-            .with_title("Floating window")
-            .with_background("transparent")
-            .with_state(app_state)
-            .build(),
-    );
+            if let Ok(app_conf) = serde_json::from_str::<AppConfig>(&config_str) {
+                app_conf
+            } else {
+                write_file()
+            }
+        } else {
+            write_file()
+        }
+    }
+
+    pub async fn save(&self) {
+        let conf_file = tokio::fs::File::create(Self::get_conf_path()).await;
+        if let Ok(mut conf_file) = conf_file {
+            conf_file
+                .write_all(self.to_json().as_bytes())
+                .await
+                .unwrap();
+        }
+    }
+
+    pub fn to_json(&self) -> String {
+        serde_json::to_string_pretty(&self).unwrap()
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+struct AppState {
+    app_conf: AppConfig,
+}
+
+impl AppState {
+    pub fn new() -> Self {
+        Self {
+            app_conf: AppConfig::load(),
+        }
+    }
+}
+
+const RATIO: f64 = 3.5;
+
+fn main() {
+    let app_state = AppState::new();
+
+    let window_width = app_state.app_conf.size;
+
+    let config = LaunchConfig::<AppState>::builder()
+        .with_width(window_width)
+        .with_height(window_width / RATIO)
+        .with_position(app_state.app_conf.x, app_state.app_conf.y)
+        .with_decorations(false)
+        .with_transparency(true)
+        .with_skip_taskbar(true)
+        .with_window_level(WindowLevel::AlwaysOnTop)
+        .with_resizable(false)
+        .with_title("Floating window")
+        .with_background("transparent")
+        .with_state(app_state);
+
+    launch_cfg(app, config.build());
 }
 
 fn app() -> Element {
@@ -119,6 +140,30 @@ fn app() -> Element {
         });
     });
 
+    let app_state = consume_context::<AppState>();
+    let mut app_conf = use_signal(|| app_state.app_conf);
+    let mut task: Signal<Option<Task>> = use_signal(|| None);
+
+    let mut save_conf = move || {
+        if let Some(task) = task.write().take() {
+            task.cancel();
+        }
+        let move_task = Some(spawn(async move {
+            sleep(Duration::from_millis(1500)).await;
+            app_conf().save().await;
+            task.write().take();
+        }));
+        task.replace(move_task);
+    };
+
+    let mut locked = use_signal(|| app_conf.read().lock);
+
+    let mut handle_lock = move || {
+        locked.set(!locked());
+        app_conf.write().lock = locked();
+        save_conf();
+    };
+
     let platform = use_platform();
     let mut exit_record = use_signal(|| 0i64);
     let mut handle_exit = move || {
@@ -135,16 +180,45 @@ fn app() -> Element {
         }
     };
 
-    let mut locked = use_signal(|| false);
+    let mut start_resize = use_signal(|| false);
 
-    let mut handle_lock = move || locked.set(!locked());
+    let handle_resize = move |e: WheelEvent| {
+        if locked() || !start_resize() {
+            return;
+        }
+        e.stop_propagation();
+        let wheel_y = e.get_delta_y() as f32;
+        let window_size = platform.info().window_size;
+        let new_width = window_size.width + wheel_y;
+        let new_height = new_width / RATIO as f32;
+        platform.set_window_size(Size2D::new(new_width, new_height));
+        app_conf.write().size = new_width as f64;
+        save_conf();
+    };
 
     let handle_keydown = move |e: KeyboardEvent| {
         if e.key == Key::Escape {
             handle_exit();
         } else if e.key == Key::Enter {
             handle_lock();
+        } else if e.key == Key::Control {
+            start_resize.set(true);
         }
+    };
+
+    let handle_keyup = move |e: KeyboardEvent| {
+        if locked() {
+            return;
+        }
+        if e.key == Key::Control {
+            start_resize.set(false);
+        }
+    };
+
+    let handle_window_moved = move |e: WindowMovedEvent| {
+        app_conf.write().x = e.get_x();
+        app_conf.write().y = e.get_y();
+        save_conf();
     };
 
     rsx!(
@@ -157,6 +231,9 @@ fn app() -> Element {
           main_align: "center",
           cross_align: "center",
           onkeydown: handle_keydown,
+          onkeyup: handle_keyup,
+          onwheel: handle_resize,
+          onwindowmoved: handle_window_moved,
           // border: "2 solid red",
           NumGroup {
             num: hour(),
@@ -185,7 +262,8 @@ pub fn Splitter() -> Element {
 
     let radius = window_size.width * 0.04285 * 0.33333;
 
-    let AppState { dot_color, .. } = consume_context::<AppState>();
+    let app_conf = consume_context::<AppState>().app_conf;
+    let dot_color = app_conf.dot_color;
 
     rsx!(
       rect {
@@ -203,7 +281,7 @@ pub fn Splitter() -> Element {
             height: "20%",
             corner_radius: radius.to_string(),
             corner_smoothing: "75%",
-            background: dot_color
+            background: dot_color.clone()
           }
           rect {height: "60%"}
           rect {
@@ -273,11 +351,16 @@ pub struct NumProps {
 pub fn Num(props: NumProps) -> Element {
     let mut current_num = use_signal(|| props.num);
     let mut next_num = use_signal(|| props.num);
-    let AppState {
-        card_color,
-        font_color,
-        ..
-    } = consume_context::<AppState>();
+
+    let app_conf = consume_context::<AppState>().app_conf;
+
+    let card_color = Color::parse(&app_conf.card_color)
+        .ok()
+        .unwrap_or(Color::BLACK);
+
+    let font_color = Color::parse(&app_conf.font_color)
+        .ok()
+        .unwrap_or(Color::WHITE);
 
     let animation = use_animation(|ctx| {
         ctx.with(
@@ -390,7 +473,7 @@ pub fn Num(props: NumProps) -> Element {
 
                             // x axis rotate
                             #[allow(deprecated)]
-                            let mut view3d = View3D::new();
+                            let mut view3d = View3D::default();
                             view3d.rotate_x(-angle);
                             canvas.concat(&view3d.matrix());
 

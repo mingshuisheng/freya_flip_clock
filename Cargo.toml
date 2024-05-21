@@ -5,7 +5,7 @@ edition = "2021"
 
 [package.metadata.packager]
 before-packaging-command = "cargo build --release" # Before packaging, packager will run this command.
-product-name = "My App" # By default, the crate name will be shown, but you probably prefer "My App" over "my-app".
+product-name = "My App"                            # By default, the crate name will be shown, but you probably prefer "My App" over "my-app".
 
 [build-dependencies]
 winresource = "0.1.7"
@@ -22,8 +22,8 @@ incremental = false
 
 [dependencies]
 freya = { path = "../../rustLib/freya/crates/freya" }
-image = "0.25.1"
-tokio = "1.37.0"
-mouce = "0.2.44"
+tokio = { version = "1.37.0", features = ["fs"] }
 skia-safe = { version = "0.72.0", features = ["gl", "textlayout", "svg"] }
 chrono = "0.4.38"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
