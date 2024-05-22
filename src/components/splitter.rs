@@ -5,7 +5,7 @@ use freya::prelude::*;
 #[component]
 pub fn Splitter() -> Element {
     let platform = use_platform();
-    let PlatformInformation { window_size } = platform.info();
+    let PlatformInformation { window_size, .. } = platform.info();
 
     let radius = window_size.width * 0.04285 * 0.33333;
 

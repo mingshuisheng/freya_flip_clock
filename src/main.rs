@@ -27,13 +27,13 @@ fn main() {
 
     let config = LaunchConfig::<AppState>::builder()
         .with_width(window_width)
-        .with_height(window_width / RATIO)
+        .with_height(window_width / RATIO as f64)
         .with_position(app_state.app_conf.x, app_state.app_conf.y)
         .with_decorations(false)
         .with_transparency(true)
         .with_skip_taskbar(true)
         .with_window_level(WindowLevel::AlwaysOnTop)
-        .with_resizable(false)
+        // .with_resizable(false)
         .with_title("Flip clock window")
         .with_background("transparent")
         .with_state(app_state);

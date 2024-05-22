@@ -1,11 +1,11 @@
-use crate::{app_state::use_app_conf, components::*, times::use_current_time};
+use crate::{app_state::use_app_conf, components::*, constant::RATIO, times::use_current_time};
 use chrono::Local;
 use freya::prelude::*;
 
 #[allow(non_snake_case)]
 #[component]
 pub fn App() -> Element {
-    let (mut app_conf, mut update_size) = use_app_conf();
+    let mut app_conf = use_app_conf();
 
     let platform = use_platform();
     let mut exit_record = use_signal(|| 0i64);
@@ -29,14 +29,6 @@ pub fn App() -> Element {
         app_conf.write().lock = locked();
     };
 
-    let handle_resize = move |e: WheelEvent| {
-        if locked() {
-            return;
-        }
-        e.stop_propagation();
-        update_size(e.get_delta_y() as f32);
-    };
-
     let handle_keydown = move |e: KeyboardEvent| {
         if e.key == Key::Escape {
             handle_exit();
@@ -50,20 +42,27 @@ pub fn App() -> Element {
         app_conf.write().y = e.get_y();
     };
 
+    let handle_size_change = move |(new_size, _): (Size2D, Size2D)| {
+        app_conf.write().size = new_size.width as f64;
+    };
+
     rsx!(
-      WindowDragArea {
-        enable: !locked(),
-        rect {
-          width: "100%",
-          height: "100%",
-          direction: "horizontal",
-          main_align: "center",
-          cross_align: "center",
-          onkeydown: handle_keydown,
-          onwheel: handle_resize,
-          onwindowmoved: handle_window_moved,
-          // border: "2 solid red",
-          MainArea{}
+        WindowDragArea {
+          enable: !locked(),
+          WindowDragResizeArea {
+            aspect_ratio: RATIO,
+            on_size_change: handle_size_change,
+            rect {
+              width: "100%",
+              height: "100%",
+              direction: "horizontal",
+              main_align: "center",
+              cross_align: "center",
+              onkeydown: handle_keydown,
+              onwindowmoved: handle_window_moved,
+              border: "2 solid red",
+              MainArea{}
+            }
         }
       }
     )
