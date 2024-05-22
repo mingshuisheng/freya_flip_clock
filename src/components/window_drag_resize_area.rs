@@ -4,6 +4,8 @@ use freya::prelude::*;
 use mouce::{common::MouseButton, common::MouseEvent, Mouse};
 use tokio::sync::broadcast::channel;
 
+use crate::hooks::{use_prop, use_prop_with_option_default};
+
 const EDGE_SIZE: f32 = 10.0;
 
 const NORTH_DIRECTION: [ResizeDirection; 3] = [
@@ -39,10 +41,15 @@ const CORNER_DIRECTION: [ResizeDirection; 4] = [
 
 #[derive(Props, Clone, PartialEq)]
 pub struct WindowDragResizeAreaProps {
+    pub enable: Option<bool>,
     pub edge_size: Option<f32>,
     pub aspect_ratio: Option<f32>,
     // work only aspect_ratio is not None
     pub on_size_change: Option<EventHandler<(Size2D, Size2D)>>,
+    pub min_width: Option<f32>,
+    pub max_width: Option<f32>,
+    pub min_height: Option<f32>,
+    pub max_height: Option<f32>,
     pub children: Element,
 }
 
@@ -52,24 +59,20 @@ pub fn WindowDragResizeArea(props: WindowDragResizeAreaProps) -> Element {
     let platform = use_platform();
     let mut resize_direction = use_signal(|| None as Option<ResizeDirection>);
     let mut start_resize = use_signal(|| false);
+    let enable = props.enable.unwrap_or(true);
 
-    let mut edge_size = use_signal(|| props.edge_size.unwrap_or(EDGE_SIZE));
-
-    use_effect(use_reactive(&props.edge_size, move |value| {
-        edge_size.set(value.unwrap_or(EDGE_SIZE));
-    }));
-
-    let mut aspect_ratio = use_signal(|| props.aspect_ratio);
-    use_effect(use_reactive(&props.aspect_ratio, move |value| {
-        aspect_ratio.set(value);
-    }));
-
-    let mut on_size_change = use_signal(|| props.on_size_change);
-    use_effect(use_reactive(&props.on_size_change, move |value| {
-        on_size_change.set(value);
-    }));
+    let edge_size = use_prop(props.edge_size.unwrap_or(EDGE_SIZE));
+    let aspect_ratio = use_prop(props.aspect_ratio);
+    let on_size_change = use_prop(props.on_size_change);
+    let min_width = use_prop_with_option_default(props.min_width, 200.0);
+    let max_width = use_prop_with_option_default(props.max_width, f32::MAX);
+    let min_height = use_prop_with_option_default(props.min_height, 200.0);
+    let max_height = use_prop_with_option_default(props.max_height, f32::MAX);
 
     let onmouseover = move |e: freya::prelude::MouseEvent| {
+        if !enable {
+            return;
+        }
         if start_resize() {
             return;
         }
@@ -137,7 +140,7 @@ pub fn WindowDragResizeArea(props: WindowDragResizeAreaProps) -> Element {
 
             loop {
                 let e = rx.recv().await.ok();
-                if e.is_none() || aspect_ratio().is_none() {
+                if e.is_none() || aspect_ratio().is_none() || resize_direction().is_none() {
                     continue;
                 }
                 match e.unwrap() {
@@ -180,8 +183,20 @@ pub fn WindowDragResizeArea(props: WindowDragResizeAreaProps) -> Element {
                             new_window_size.width = new_window_size.width + delta_x;
                         }
 
-                        if aspect_ratio().is_some() {
-                            let aspect_ratio = aspect_ratio.unwrap();
+                        let min_width = min_width();
+                        let max_width = max_width();
+                        let mut min_height = min_height();
+                        let mut max_height = max_height();
+
+                        if let Some(aspect_ratio) = aspect_ratio() {
+                            min_height = min_width / aspect_ratio;
+                            max_height = max_width / aspect_ratio;
+                        }
+                        new_window_size.width = new_window_size.width.clamp(min_width, max_width);
+                        new_window_size.height =
+                            new_window_size.height.clamp(min_height, max_height);
+
+                        if let Some(aspect_ratio) = aspect_ratio() {
                             if CORNER_DIRECTION.contains(&resize_direction) {
                                 new_window_size.height = new_window_size.width / aspect_ratio;
                             } else if window_size.width != new_window_size.width {
@@ -191,9 +206,14 @@ pub fn WindowDragResizeArea(props: WindowDragResizeAreaProps) -> Element {
                             }
                         }
 
-                        platform.set_window_size_and_position(new_window_size, new_window_position);
-                        if let Some(on_size_change) = on_size_change() {
-                            on_size_change.call((new_window_size, window_size));
+                        if new_window_size.width != window_size.width
+                            || new_window_size.height != window_size.height
+                        {
+                            platform
+                                .set_window_size_and_position(new_window_size, new_window_position);
+                            if let Some(on_size_change) = on_size_change() {
+                                on_size_change.call((new_window_size, window_size));
+                            }
                         }
 
                         //更新鼠标位置

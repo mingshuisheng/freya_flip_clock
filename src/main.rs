@@ -10,6 +10,7 @@ mod canvas_utils;
 mod colors;
 mod components;
 mod constant;
+mod hooks;
 mod times;
 
 use app::App;
@@ -33,7 +34,7 @@ fn main() {
         .with_transparency(true)
         .with_skip_taskbar(true)
         .with_window_level(WindowLevel::AlwaysOnTop)
-        // .with_resizable(false)
+        .with_resizable(false)
         .with_title("Flip clock window")
         .with_background("transparent")
         .with_state(app_state);

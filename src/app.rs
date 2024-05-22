@@ -50,6 +50,7 @@ pub fn App() -> Element {
         WindowDragArea {
           enable: !locked(),
           WindowDragResizeArea {
+            enable: !locked(),
             aspect_ratio: RATIO,
             on_size_change: handle_size_change,
             rect {
@@ -60,7 +61,7 @@ pub fn App() -> Element {
               cross_align: "center",
               onkeydown: handle_keydown,
               onwindowmoved: handle_window_moved,
-              border: "2 solid red",
+            //   border: "2 solid red",
               MainArea{}
             }
         }
