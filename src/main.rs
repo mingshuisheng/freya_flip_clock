@@ -14,17 +14,16 @@ mod hooks;
 mod times;
 
 use app::App;
+use app_config::to_window_level;
 use app_state::AppState;
 use constant::RATIO;
-use freya::{
-    launch::launch_cfg,
-    prelude::{LaunchConfig, WindowLevel},
-};
+use freya::{launch::launch_cfg, prelude::LaunchConfig};
 
 fn main() {
     let app_state = AppState::new();
 
     let window_width = app_state.app_conf.size;
+    let window_level = to_window_level(app_state.app_conf.window_level);
 
     let config = LaunchConfig::<AppState>::builder()
         .with_width(window_width)
@@ -33,7 +32,7 @@ fn main() {
         .with_decorations(false)
         .with_transparency(true)
         .with_skip_taskbar(true)
-        .with_window_level(WindowLevel::AlwaysOnTop)
+        .with_window_level(window_level)
         .with_resizable(false)
         .with_title("Flip clock window")
         .with_background("transparent")

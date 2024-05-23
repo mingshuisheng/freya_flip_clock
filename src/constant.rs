@@ -1,1 +1,1 @@
-pub const RATIO: f32 = 3.5;
+pub const RATIO: f32 = 2.8;

@@ -1,40 +1,30 @@
-use crate::{app_state::use_app_conf, components::*, constant::RATIO, times::use_current_time};
-use chrono::Local;
+use crate::{app_config::to_window_level, components::*, constant::RATIO, times::use_current_time};
 use freya::prelude::*;
+use mouce::Mouse;
 
 #[allow(non_snake_case)]
 #[component]
 pub fn App() -> Element {
-    let mut app_conf = use_app_conf();
+    rsx!(AppConfigContextProvide {
+        MyApp{}
+    })
+}
 
+#[allow(non_snake_case)]
+#[component]
+pub fn MyApp() -> Element {
+    let app_config_context = use_app_conf_context();
+    let mut app_conf = app_config_context.app_conf;
+    let card_color = app_conf().card_color;
     let platform = use_platform();
-    let mut exit_record = use_signal(|| 0i64);
-    let mut handle_exit = move || {
-        if exit_record() == 0 {
-            exit_record.set(Local::now().timestamp_millis());
-        } else {
-            let now = Local::now().timestamp_millis();
-            let diff = now - exit_record();
-            if diff > 500 {
-                exit_record.set(now);
-            } else {
-                platform.exit();
-            }
-        }
-    };
 
-    let mut locked = use_signal(|| app_conf.read().lock);
+    let window_size = app_conf().window_size();
+    let window_position = app_conf().window_position();
+
+    let radius = app_conf().size * 0.04285 * 0.33333;
+
     let mut handle_lock = move || {
-        locked.set(!locked());
-        app_conf.write().lock = locked();
-    };
-
-    let handle_keydown = move |e: KeyboardEvent| {
-        if e.key == Key::Escape {
-            handle_exit();
-        } else if e.key == Key::Enter {
-            handle_lock();
-        }
+        app_conf.write().lock = !app_conf().lock;
     };
 
     let handle_window_moved = move |e: WindowMovedEvent| {
@@ -46,23 +36,72 @@ pub fn App() -> Element {
         app_conf.write().size = new_size.width as f64;
     };
 
+    let mut opacity = use_signal(|| "0");
+
+    let mouse_manager = Mouse::new();
+    let handle_mouse_over = move |_| {
+        let (x, y) = mouse_manager.get_position().unwrap();
+        let x = x as f32;
+        let y = y as f32;
+        if x < window_position.0
+            || x > (window_position.0 + window_size.0)
+            || y < window_position.1
+            || y > (window_position.1 + window_size.1)
+        {
+            opacity.set("0");
+        } else {
+            opacity.set("1");
+        }
+    };
+
+    let window_level = to_window_level(app_conf().window_level);
+
+    let mut handle_level = move || {
+        app_conf.write().window_level = (app_conf().window_level + 1) % 3;
+        platform.set_window_level(to_window_level(app_conf().window_level));
+    };
+
     rsx!(
         WindowDragArea {
-          enable: !locked(),
+          enable: !app_conf().lock,
           WindowDragResizeArea {
-            enable: !locked(),
+            enable: !app_conf().lock,
             aspect_ratio: RATIO,
             on_size_change: handle_size_change,
             rect {
               width: "100%",
               height: "100%",
-              direction: "horizontal",
               main_align: "center",
               cross_align: "center",
-              onkeydown: handle_keydown,
               onwindowmoved: handle_window_moved,
-            //   border: "2 solid red",
-              MainArea{}
+              onglobalmouseover: handle_mouse_over,
+              // border: "2 solid red",
+              rect {
+                width: "100%",
+                height: "80%",
+                direction: "horizontal",
+                main_align: "center",
+                cross_align: "center",
+                MainArea{}
+              }
+              rect {
+                height: "1%",
+              }
+              rect {
+                width: "98%",
+                height: "19%",
+                background: card_color,
+                opacity: opacity(),
+                corner_radius: radius.to_string(),
+                corner_smoothing: "75%",
+                Tools {
+                    locked: app_conf().lock,
+                    window_level: window_level,
+                    on_close_click: move |_| platform.exit(),
+                    on_lock_click: move |_| handle_lock(),
+                    on_level_click: move |_| handle_level(),
+                }
+              }
             }
         }
       }

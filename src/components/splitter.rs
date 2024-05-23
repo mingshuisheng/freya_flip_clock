@@ -1,13 +1,13 @@
-use crate::AppState;
+use crate::{components::use_app_conf_context, AppState};
 use freya::prelude::*;
 
 #[allow(non_snake_case)]
 #[component]
 pub fn Splitter() -> Element {
-    let platform = use_platform();
-    let PlatformInformation { window_size, .. } = platform.info();
+    let app_config_context = use_app_conf_context();
+    let app_conf = app_config_context.app_conf;
 
-    let radius = window_size.width * 0.04285 * 0.33333;
+    let radius = app_conf().size * 0.04285 * 0.33333;
 
     let app_conf = consume_context::<AppState>().app_conf;
     let dot_color = app_conf.dot_color;

@@ -81,13 +81,16 @@ pub fn WindowDragResizeArea(props: WindowDragResizeAreaProps) -> Element {
             return;
         }
         let PlatformInformation { window_size, .. } = platform.info();
-        let position = e.data().get_screen_coordinates().to_f32();
+        let position = e.get_screen_coordinates().to_f32();
         resize_direction.set(cursor_resize_direction(window_size, position, edge_size()));
+        platform.set_cursor(get_cursor_icon(resize_direction()));
     };
 
-    use_effect(move || {
-        platform.set_cursor(get_cursor_icon(resize_direction().clone()));
-    });
+    use_effect(use_reactive(&enable, move |enable| {
+        if !enable {
+            platform.set_cursor(CursorIcon::Default);
+        }
+    }));
 
     let onmouseleave = move |_| {
         if start_resize() {
