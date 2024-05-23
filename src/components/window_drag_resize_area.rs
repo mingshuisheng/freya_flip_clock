@@ -69,6 +69,10 @@ pub fn WindowDragResizeArea(props: WindowDragResizeAreaProps) -> Element {
     let min_height = use_prop_with_option_default(props.min_height, 200.0);
     let max_height = use_prop_with_option_default(props.max_height, f32::MAX);
 
+    if !enable {
+        resize_direction.set(None);
+    }
+
     let onmouseover = move |e: freya::prelude::MouseEvent| {
         if !enable {
             return;
@@ -79,8 +83,11 @@ pub fn WindowDragResizeArea(props: WindowDragResizeAreaProps) -> Element {
         let PlatformInformation { window_size, .. } = platform.info();
         let position = e.data().get_screen_coordinates().to_f32();
         resize_direction.set(cursor_resize_direction(window_size, position, edge_size()));
-        platform.set_cursor(get_cursor_icon(resize_direction().clone()));
     };
+
+    use_effect(move || {
+        platform.set_cursor(get_cursor_icon(resize_direction().clone()));
+    });
 
     let onmouseleave = move |_| {
         if start_resize() {
