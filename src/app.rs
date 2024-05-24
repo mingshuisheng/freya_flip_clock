@@ -1,13 +1,16 @@
 use crate::{app_config::to_window_level, components::*, constant::RATIO, times::use_current_time};
 use freya::prelude::*;
-use mouce::Mouse;
 
 #[allow(non_snake_case)]
 #[component]
 pub fn App() -> Element {
-    rsx!(AppConfigContextProvide {
-        MyApp{}
-    })
+    rsx!(
+        CursorIconContextProvider {
+            AppConfigContextProvide {
+              MyApp{}
+          }
+        }
+    )
 }
 
 #[allow(non_snake_case)]
@@ -36,24 +39,6 @@ pub fn MyApp() -> Element {
 
     let mut opacity = use_signal(|| "0");
 
-    let mouse_manager = Mouse::new();
-    let handle_mouse_over = move |_| {
-        let window_size = app_conf().window_size();
-        let window_position = app_conf().window_position();
-        let (x, y) = mouse_manager.get_position().unwrap();
-        let x = x as f32;
-        let y = y as f32;
-        if x < window_position.0
-            || x > (window_position.0 + window_size.0)
-            || y < window_position.1
-            || y > (window_position.1 + window_size.1)
-        {
-            opacity.set("0");
-        } else {
-            opacity.set("1");
-        }
-    };
-
     let window_level = to_window_level(app_conf().window_level);
 
     let mut handle_level = move || {
@@ -74,7 +59,8 @@ pub fn MyApp() -> Element {
               main_align: "center",
               cross_align: "center",
               onwindowmoved: handle_window_moved,
-              onglobalmouseover: handle_mouse_over,
+              onmouseenter: move |_| { opacity.set("1") },
+              onmouseleave: move |_| { opacity.set("0") },
               // border: "2 solid red",
               rect {
                 width: "100%",

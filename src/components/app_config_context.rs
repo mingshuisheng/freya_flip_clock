@@ -11,7 +11,7 @@ pub fn AppConfigContextProvide(children: Element) -> Element {
 
     let mut scale_factor = use_signal(|| platform.info().window_scale_factor);
 
-    provide_context(ScaleFactor(scale_factor));
+    provide_context(ScaleFactorContext(scale_factor));
 
     let handle_scale_change = move |e: ScaleFactorEvent| {
         let current_scale_factor = e.get_scale_factor();
@@ -36,8 +36,8 @@ pub struct AppConfigContext {
 }
 
 #[derive(Clone, Copy, PartialEq)]
-pub struct ScaleFactor(pub Signal<f32>);
+pub struct ScaleFactorContext(pub Signal<f32>);
 
-pub fn use_scale_factor() -> ScaleFactor {
-    consume_context::<ScaleFactor>()
+pub fn use_scale_factor() -> ScaleFactorContext {
+    consume_context::<ScaleFactorContext>()
 }

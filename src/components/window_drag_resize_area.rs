@@ -4,7 +4,10 @@ use freya::prelude::*;
 use mouce::{common::MouseButton, common::MouseEvent, Mouse};
 use tokio::sync::broadcast::channel;
 
-use crate::hooks::{use_prop, use_prop_with_option_default};
+use crate::{
+    components::use_cursor_icon_context,
+    hooks::{use_prop, use_prop_with_option_default},
+};
 
 const EDGE_SIZE: f32 = 10.0;
 
@@ -39,6 +42,17 @@ const CORNER_DIRECTION: [ResizeDirection; 4] = [
     ResizeDirection::SouthWest,
 ];
 
+const ALL_DIRECTION_CURSOR_ICON: [CursorIcon; 8] = [
+    CursorIcon::EResize,
+    CursorIcon::NResize,
+    CursorIcon::NeResize,
+    CursorIcon::NwResize,
+    CursorIcon::SResize,
+    CursorIcon::SeResize,
+    CursorIcon::SwResize,
+    CursorIcon::WResize,
+];
+
 #[derive(Props, Clone, PartialEq)]
 pub struct WindowDragResizeAreaProps {
     pub enable: Option<bool>,
@@ -60,6 +74,7 @@ pub fn WindowDragResizeArea(props: WindowDragResizeAreaProps) -> Element {
     let mut resize_direction = use_signal(|| None as Option<ResizeDirection>);
     let mut start_resize = use_signal(|| false);
     let enable = props.enable.unwrap_or(true);
+    let mut cursor_icon_context = use_cursor_icon_context();
 
     let edge_size = use_prop(props.edge_size.unwrap_or(EDGE_SIZE));
     let aspect_ratio = use_prop(props.aspect_ratio);
@@ -80,18 +95,24 @@ pub fn WindowDragResizeArea(props: WindowDragResizeAreaProps) -> Element {
         if start_resize() {
             return;
         }
+
         let PlatformInformation {
             window_size,
             window_scale_factor,
             ..
         } = platform.info();
         let position = e.get_screen_coordinates().to_f32();
-        resize_direction.set(cursor_resize_direction(
-            window_size / window_scale_factor,
-            position,
-            edge_size(),
-        ));
-        platform.set_cursor(get_cursor_icon(resize_direction()));
+        let current_cursor_resize_direction =
+            cursor_resize_direction(window_size / window_scale_factor, position, edge_size());
+
+        if cursor_icon_context.is_default()
+            || ALL_DIRECTION_CURSOR_ICON.contains(&cursor_icon_context.cursor_icon())
+        {
+            resize_direction.set(current_cursor_resize_direction);
+            let cursor_icon = get_cursor_icon(resize_direction());
+            platform.set_cursor(cursor_icon);
+            cursor_icon_context.set_cursor(cursor_icon);
+        }
     };
 
     use_effect(use_reactive(&enable, move |enable| {

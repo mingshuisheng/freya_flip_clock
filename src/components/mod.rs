@@ -1,4 +1,5 @@
 mod app_config_context;
+mod cursor_icon_context;
 mod num;
 mod num_group;
 mod splitter;
@@ -7,6 +8,7 @@ mod tools;
 mod window_drag_resize_area;
 
 pub use app_config_context::*;
+pub use cursor_icon_context::*;
 pub use num_group::*;
 pub use splitter::*;
 pub use tools::*;

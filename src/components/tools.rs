@@ -3,7 +3,7 @@ use freya::prelude::*;
 use super::svg::*;
 use crate::{
     app_state::use_app_conf,
-    components::{use_app_conf_context, use_scale_factor},
+    components::{use_app_conf_context, use_cursor_icon_context, use_scale_factor},
 };
 
 #[derive(Props, Clone, PartialEq)]
@@ -42,23 +42,21 @@ pub fn Tools(props: ToolsProps) -> Element {
 
     let platform = use_platform();
     let mut is_hovering = use_signal(|| false);
+    let mut cursor_icon_context = use_cursor_icon_context();
 
-    let onmouseover = move |e: MouseEvent| {
-        e.stop_propagation();
+    let onmouseenter = move |_| {
         *is_hovering.write() = true;
-        platform.set_cursor(CursorIcon::Pointer);
+        let cursor_icon = CursorIcon::Pointer;
+        platform.set_cursor(cursor_icon);
+        cursor_icon_context.set_cursor(cursor_icon);
     };
 
     let onmouseleave = move |_| {
         *is_hovering.write() = false;
-        platform.set_cursor(CursorIcon::default());
+        let cursor_icon = CursorIcon::Default;
+        platform.set_cursor(cursor_icon);
+        cursor_icon_context.set_cursor(cursor_icon);
     };
-
-    use_drop(move || {
-        if *is_hovering.peek() {
-            platform.set_cursor(CursorIcon::default());
-        }
-    });
 
     let icon_width = "5.714%";
     let icon_height = "80%";
@@ -79,7 +77,7 @@ pub fn Tools(props: ToolsProps) -> Element {
             width: icon_width,
             height: icon_height,
             onclick: handle_close,
-            onmouseover,
+            onmouseenter,
             onmouseleave,
             CloseSvg {
               stroke_color: font_color.clone()
@@ -96,7 +94,7 @@ pub fn Tools(props: ToolsProps) -> Element {
             width: icon_width,
             height: icon_height,
             onclick: handle_lock,
-            onmouseover,
+            onmouseenter,
             onmouseleave,
             if props.locked {
                 LockedSvg {
@@ -112,7 +110,7 @@ pub fn Tools(props: ToolsProps) -> Element {
             width: icon_width,
             height: icon_height,
             onclick: handle_level,
-            onmouseover,
+            onmouseenter,
             onmouseleave,
             WindowLevelIcon{ window_level: props.window_level, stroke_color: font_color.clone() }
           }

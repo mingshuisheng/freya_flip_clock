@@ -4,8 +4,6 @@ use std::fs::File;
 use std::io::{Read, Write};
 use tokio::io::AsyncWriteExt;
 
-use crate::constant::RATIO;
-
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct AppConfig {
     pub dot_color: String,
@@ -70,14 +68,6 @@ impl AppConfig {
 
     pub fn to_json(&self) -> String {
         serde_json::to_string_pretty(&self).unwrap()
-    }
-
-    pub fn window_size(&self) -> (f32, f32) {
-        (self.size as f32, self.size as f32 / RATIO)
-    }
-
-    pub fn window_position(&self) -> (f32, f32) {
-        (self.x as f32, self.y as f32)
     }
 }
 
