@@ -17,11 +17,9 @@ pub fn MyApp() -> Element {
     let mut app_conf = app_config_context.app_conf;
     let card_color = app_conf().card_color;
     let platform = use_platform();
+    let scale_factor = use_scale_factor().0;
 
-    let window_size = app_conf().window_size();
-    let window_position = app_conf().window_position();
-
-    let radius = app_conf().size * 0.04285 * 0.33333;
+    let radius = app_conf().size as f32 / scale_factor() * 0.04285 * 0.33333;
 
     let mut handle_lock = move || {
         app_conf.write().lock = !app_conf().lock;
@@ -40,6 +38,8 @@ pub fn MyApp() -> Element {
 
     let mouse_manager = Mouse::new();
     let handle_mouse_over = move |_| {
+        let window_size = app_conf().window_size();
+        let window_position = app_conf().window_position();
         let (x, y) = mouse_manager.get_position().unwrap();
         let x = x as f32;
         let y = y as f32;

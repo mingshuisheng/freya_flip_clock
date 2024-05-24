@@ -1,7 +1,10 @@
 use freya::prelude::*;
 
 use super::svg::*;
-use crate::{app_state::use_app_conf, components::use_app_conf_context};
+use crate::{
+    app_state::use_app_conf,
+    components::{use_app_conf_context, use_scale_factor},
+};
 
 #[derive(Props, Clone, PartialEq)]
 pub struct ToolsProps {
@@ -19,7 +22,8 @@ pub fn Tools(props: ToolsProps) -> Element {
     let font_color = app_conf().font_color;
     let app_config_context = use_app_conf_context();
     let app_conf = app_config_context.app_conf;
-    let margin = app_conf().size * 0.02;
+    let scale_factor = use_scale_factor().0;
+    let margin = app_conf().size as f32 / scale_factor() * 0.02;
 
     let handle_close = move |e: MouseEvent| {
         e.stop_propagation();

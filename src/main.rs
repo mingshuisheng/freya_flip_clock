@@ -26,8 +26,7 @@ fn main() {
     let window_level = to_window_level(app_state.app_conf.window_level);
 
     let config = LaunchConfig::<AppState>::builder()
-        .with_width(window_width)
-        .with_height(window_width / RATIO as f64)
+        .with_physical_size((window_width, window_width / RATIO as f64))
         .with_position(app_state.app_conf.x, app_state.app_conf.y)
         .with_decorations(false)
         .with_transparency(true)

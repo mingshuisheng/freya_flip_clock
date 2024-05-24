@@ -80,9 +80,17 @@ pub fn WindowDragResizeArea(props: WindowDragResizeAreaProps) -> Element {
         if start_resize() {
             return;
         }
-        let PlatformInformation { window_size, .. } = platform.info();
+        let PlatformInformation {
+            window_size,
+            window_scale_factor,
+            ..
+        } = platform.info();
         let position = e.get_screen_coordinates().to_f32();
-        resize_direction.set(cursor_resize_direction(window_size, position, edge_size()));
+        resize_direction.set(cursor_resize_direction(
+            window_size / window_scale_factor,
+            position,
+            edge_size(),
+        ));
         platform.set_cursor(get_cursor_icon(resize_direction()));
     };
 
@@ -146,6 +154,7 @@ pub fn WindowDragResizeArea(props: WindowDragResizeAreaProps) -> Element {
             let PlatformInformation {
                 mut window_size,
                 mut window_position,
+                ..
             } = platform.info();
 
             loop {
